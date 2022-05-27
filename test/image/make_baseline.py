@@ -36,18 +36,12 @@ if 'mathjax3' in sys.argv or 'mathjax3=' in sys.argv :
 pio.templates.default = 'none'
 pio.kaleido.scope.plotlyjs = os.path.join(root, 'build', 'plotly.js')
 
-_credentials = open(os.path.join(root, 'build', 'credentials.json'), 'r')
-pio.kaleido.scope.mapbox_access_token = json.load(_credentials)['MAPBOX_ACCESS_TOKEN']
-_credentials.close()
-
+with open(os.path.join(root, 'build', 'credentials.json'), 'r') as _credentials:
+    pio.kaleido.scope.mapbox_access_token = json.load(_credentials)['MAPBOX_ACCESS_TOKEN']
 ALL_MOCKS = [os.path.splitext(a)[0] for a in os.listdir(dirIn) if a.endswith('.json')]
 ALL_MOCKS.sort()
 
-if len(args) > 0 :
-    allNames = [a for a in args if a in ALL_MOCKS]
-else :
-    allNames = ALL_MOCKS
-
+allNames = [a for a in args if a in ALL_MOCKS] if len(args) > 0 else ALL_MOCKS
 # gl2d pointcloud and other non-regl gl2d mock(s)
 # must be tested in certain order to work on CircleCI;
 #
@@ -81,23 +75,23 @@ blacklist = [
 ]
 allNames = [a for a in allNames if a not in blacklist]
 
-if len(allNames) == 0 :
+if not allNames:
     print('error: Nothing to create!')
     sys.exit(1)
 
 failed = []
-for name in allNames :
+MAX_RETRY = 2 # 1 means retry once
+for name in allNames:
     outName = name
-    if mathjax_version == 3 :
-        outName = 'mathjax3___' + name
+    if mathjax_version == 3:
+        outName = f'mathjax3___{name}'
 
     print(outName)
 
     created = False
 
-    MAX_RETRY = 2 # 1 means retry once
-    for attempt in range(0, MAX_RETRY + 1) :
-        with open(os.path.join(dirIn, name + '.json'), 'r') as _in :
+    for attempt in range(MAX_RETRY + 1):
+        with open(os.path.join(dirIn, f'{name}.json'), 'r') as _in:
             fig = json.load(_in)
 
             width = 700
@@ -110,14 +104,15 @@ for name in allNames :
                     if 'height' in layout :
                         height = layout['height']
 
-            try :
+            try:
                 pio.write_image(
                     fig=fig,
-                    file=os.path.join(dirOut, outName + '.png'),
+                    file=os.path.join(dirOut, f'{outName}.png'),
                     width=width,
                     height=height,
-                    validate=False
+                    validate=False,
                 )
+
                 created = True
             except Exception as e :
                 print(e)
@@ -128,7 +123,7 @@ for name in allNames :
 
         if(created) : break
 
-if len(failed) > 0 :
+if failed:
     print('Failed at :')
     print(failed)
     sys.exit(1)
